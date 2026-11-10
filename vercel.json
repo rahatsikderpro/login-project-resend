@@ -3,6 +3,7 @@
   "framework": "express",
   "buildCommand": "npm run build && node --input-type=module -e \"import { cpSync } from 'node:fs'; cpSync('dist', 'public', { recursive: true })\"",
   "rewrites": [
+    { "source": "/", "destination": "/index.html" },
     { "source": "/login", "destination": "/index.html" },
     { "source": "/register", "destination": "/index.html" },
     { "source": "/verify-email", "destination": "/index.html" },
