@@ -315,10 +315,31 @@ app.post('/api/register', async (req, res) => {
   }
 })
 
-if (process.env.VERCEL !== '1' && (process.env.NODE_ENV === 'production' || process.env.VITE_BUILD === 'true')) {
-  app.use(express.static(distPath))
-  app.get('/{*path}', (_req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'))
+if (process.env.VERCEL === '1' || process.env.NODE_ENV === 'production' || process.env.VITE_BUILD === 'true') {
+  if (process.env.VERCEL !== '1') {
+    app.use(express.static(distPath))
+  }
+
+  app.use('/api', (_req, res) => {
+    res.status(404).json({ message: 'API route not found.' })
+  })
+
+  app.get('/assets/:asset', (req, res, next) => {
+    const asset = req.params.asset
+
+    if (path.basename(asset) !== asset) {
+      return res.sendStatus(404)
+    }
+
+    res.sendFile(path.join(distPath, 'assets', asset), (error) => {
+      if (error) next(error)
+    })
+  })
+
+  app.get('/{*path}', (_req, res, next) => {
+    res.sendFile(path.join(distPath, 'index.html'), (error) => {
+      if (error) next(error)
+    })
   })
 }
 
