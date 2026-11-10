@@ -4,6 +4,10 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    outDir: 'public', // 👈 Vercel's Express preset serves static files from here
+    emptyOutDir: true,
+  },
   server: {
     host: '0.0.0.0',
     port: 5174,
