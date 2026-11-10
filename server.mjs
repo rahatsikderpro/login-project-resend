@@ -94,11 +94,34 @@ async function ensureDatabaseSchema() {
       (user) => `('${user.name.replace(/'/g, "''")}', '${user.email.replace(/'/g, "''")}', '${hashPassword(user.password)}', ${user.verified})`,
     )
 
-    await pool.query(`INSERT INTO users (name, email, password_hash, email_verified) VALUES ${values.join(', ')}`)
+    await pool.query(`INSERT INTO users (name, email, password_hash, email_verified) VALUES ${values.join(', ')} ON CONFLICT (email) DO NOTHING`)
   }
 }
 
+let databaseInitialization
+
+function initializeDatabaseOnce() {
+  if (!databaseInitialization) {
+    databaseInitialization = ensureDatabaseSchema().catch((error) => {
+      databaseInitialization = undefined
+      throw error
+    })
+  }
+
+  return databaseInitialization
+}
+
 app.use(express.json())
+
+app.use('/api', async (_req, res, next) => {
+  try {
+    await initializeDatabaseOnce()
+    next()
+  } catch (error) {
+    console.error('Failed to initialize database schema:', error)
+    res.status(500).json({ message: 'Database is unavailable.' })
+  }
+})
 
 app.post('/api/test-email', async (req, res) => {
   const to = String(req.body?.to ?? '').trim()
@@ -292,21 +315,25 @@ app.post('/api/register', async (req, res) => {
   }
 })
 
-if (process.env.NODE_ENV === 'production' || process.env.VITE_BUILD === 'true') {
+if (process.env.VERCEL !== '1' && (process.env.NODE_ENV === 'production' || process.env.VITE_BUILD === 'true')) {
   app.use(express.static(distPath))
-  app.get('*', (_req, res) => {
+  app.get('/{*path}', (_req, res) => {
     res.sendFile(path.join(distPath, 'index.html'))
   })
 }
 
 async function startServer() {
-  await ensureDatabaseSchema()
+  await initializeDatabaseOnce()
   app.listen(port, () => {
     console.log(`Login system is running on http://localhost:${port}`)
   })
 }
 
-startServer().catch((error) => {
-  console.error('Failed to start the server:', error)
-  process.exit(1)
-})
+if (process.env.VERCEL !== '1') {
+  startServer().catch((error) => {
+    console.error('Failed to start the server:', error)
+    process.exit(1)
+  })
+}
+
+export default app
